@@ -2,50 +2,88 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'add_money_to_goal_screen.dart';
-import 'savings_goals_screen.dart';
+import 'withdraw_money_screen.dart';
+import 'edit_goal_screen.dart';
+import '../models/goal_model.dart';
+import '../services/api_service.dart';
+import 'savings_goals_screen.dart' show GoalUrgency;
 
-class GoalDetailScreen extends StatelessWidget {
-  final GoalItem goal;
+class GoalDetailScreen extends StatefulWidget {
+  final GoalModel goal;
 
   const GoalDetailScreen({super.key, required this.goal});
+
+  @override
+  State<GoalDetailScreen> createState() => _GoalDetailScreenState();
+}
+
+class _GoalDetailScreenState extends State<GoalDetailScreen> {
+  late GoalModel _goal;
+  bool _isLoading = false;
+  List<dynamic> _transactions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _goal = widget.goal;
+    _fetchDetails();
+  }
+
+  Future<void> _fetchDetails() async {
+    setState(() => _isLoading = true);
+    try {
+      final data = await ApiService.getGoalById(_goal.id);
+      if (mounted) {
+        setState(() {
+          _goal = GoalModel.fromJson(data['goal']);
+          _transactions = data['transactions'];
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: FinzyTheme.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Hero teal header card
-              _buildHeroCard(context),
-
-              Padding(
-                padding: const EdgeInsets.all(FinzyTheme.spacingMd),
+        child: _isLoading && _transactions.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Progress ring
-                    _buildProgressRing(),
-                    const SizedBox(height: FinzyTheme.spacingLg),
+                    // Hero teal header card
+                    _buildHeroCard(context),
 
-                    // Action buttons
-                    _buildActionButtons(context),
-                    const SizedBox(height: FinzyTheme.spacingLg),
+                    Padding(
+                      padding: const EdgeInsets.all(FinzyTheme.spacingMd),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Progress ring
+                          _buildProgressRing(),
+                          const SizedBox(height: FinzyTheme.spacingLg),
 
-                    // History section
-                    _buildHistorySection(),
-                    const SizedBox(height: FinzyTheme.spacingLg),
+                          // Action buttons
+                          _buildActionButtons(context),
+                          const SizedBox(height: FinzyTheme.spacingLg),
 
-                    // Motivational tip
-                    _buildMotivationCard(),
-                    const SizedBox(height: FinzyTheme.spacingMd),
+                          // History section
+                          _buildHistorySection(),
+                          const SizedBox(height: FinzyTheme.spacingLg),
+
+                          // Motivational tip
+                          _buildMotivationCard(),
+                          const SizedBox(height: FinzyTheme.spacingMd),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -55,6 +93,19 @@ class GoalDetailScreen extends StatelessWidget {
   // ---------------------------------------------------------------------------
 
   Widget _buildHeroCard(BuildContext context) {
+    final daysLeft = _goal.deadline.difference(DateTime.now()).inDays;
+    final GoalUrgency urgency = daysLeft < 7
+        ? GoalUrgency.urgent
+        : (daysLeft < 30 ? GoalUrgency.month : GoalUrgency.normal);
+
+    Color iconColor;
+    try {
+      iconColor = Color(int.parse(_goal.color.replaceFirst('#', '0xFF')));
+    } catch (_) {
+      iconColor = FinzyTheme.primary;
+    }
+    Color iconBg = iconColor.withValues(alpha: 0.1);
+
     return Container(
       width: double.infinity,
       color: FinzyTheme.primary,
@@ -94,15 +145,15 @@ class GoalDetailScreen extends StatelessWidget {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: goal.iconBg,
+              color: iconBg,
               borderRadius: BorderRadius.circular(FinzyTheme.radiusMd),
             ),
-            child: Icon(goal.icon, color: goal.iconColor, size: 36),
+            child: Icon(_goal.iconData, color: iconColor, size: 36),
           ),
           const SizedBox(height: FinzyTheme.spacingMd),
 
           Text(
-            goal.name,
+            _goal.name,
             style: FinzyTheme.headlineLg
                 .copyWith(color: FinzyTheme.onPrimary, fontWeight: FontWeight.w700),
           ),
@@ -114,9 +165,9 @@ class GoalDetailScreen extends StatelessWidget {
                   color: FinzyTheme.onPrimary, size: 14),
               const SizedBox(width: 4),
               Text(
-                goal.urgency == GoalUrgency.urgent
-                    ? goal.deadline
-                    : 'Hạn chót: ${goal.deadline}',
+                urgency == GoalUrgency.urgent
+                    ? '${_goal.deadline.day}/${_goal.deadline.month}/${_goal.deadline.year}'
+                    : 'Hạn chót: ${_goal.deadline.day}/${_goal.deadline.month}/${_goal.deadline.year}',
                 style: FinzyTheme.labelMd
                     .copyWith(color: FinzyTheme.onPrimary.withValues(alpha: 0.8)),
               ),
@@ -138,7 +189,7 @@ class GoalDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _fmt(goal.current),
+                      _fmt(_goal.currentAmount),
                       style: FinzyTheme.headlineMd
                           .copyWith(color: FinzyTheme.onPrimary, fontWeight: FontWeight.w700),
                     ),
@@ -162,7 +213,7 @@ class GoalDetailScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _fmt(goal.target),
+                        _fmt(_goal.targetAmount),
                         style: FinzyTheme.headlineMd.copyWith(
                             color: FinzyTheme.onPrimary,
                             fontWeight: FontWeight.w700),
@@ -183,6 +234,13 @@ class GoalDetailScreen extends StatelessWidget {
   // ---------------------------------------------------------------------------
 
   Widget _buildProgressRing() {
+    double percent = (_goal.targetAmount > 0)
+        ? (_goal.currentAmount / _goal.targetAmount) * 100
+        : 0;
+    if (percent > 100) percent = 100;
+    
+    String percentText = percent.toStringAsFixed(percent.truncateToDouble() == percent ? 0 : 1);
+
     return FinzyCard(
       padding: const EdgeInsets.all(FinzyTheme.spacingLg),
       child: Column(
@@ -191,13 +249,13 @@ class GoalDetailScreen extends StatelessWidget {
             width: 160,
             height: 160,
             child: CustomPaint(
-              painter: _RingPainter(progress: goal.percent / 100),
+              painter: _RingPainter(progress: percent / 100),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '${goal.percent}%',
+                      '$percentText%',
                       style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w800,
@@ -220,7 +278,7 @@ class GoalDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: FinzyTheme.spacingMd),
           Text(
-            'Bạn chỉ còn ${_fmt(goal.target - goal.current)}\nnữa để đạt mục tiêu!',
+            'Bạn chỉ còn ${_fmt(max(0, _goal.targetAmount - _goal.currentAmount))}\nnữa để đạt mục tiêu!',
             textAlign: TextAlign.center,
             style: FinzyTheme.bodyMd.copyWith(color: FinzyTheme.onSurfaceVariant),
           ),
@@ -241,9 +299,19 @@ class GoalDetailScreen extends StatelessWidget {
             icon: Icons.add_circle_outline,
             label: 'Nạp tiền',
             selected: true,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const AddMoneyToGoalScreen()),
-            ),
+            onTap: () async {
+              // Wait for user to add money, then refresh
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => AddMoneyToGoalScreen(
+                        goalId: _goal.id, 
+                        goalName: _goal.name,
+                        currentAmount: _goal.currentAmount)),
+              );
+              if (mounted) {
+                _fetchDetails();
+              }
+            },
           ),
         ),
         const SizedBox(width: FinzyTheme.spacingSm),
@@ -252,7 +320,18 @@ class GoalDetailScreen extends StatelessWidget {
             icon: Icons.remove_circle_outline,
             label: 'Rút tiền',
             selected: false,
-            onTap: () {},
+            onTap: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => WithdrawMoneyScreen(
+                        goalId: _goal.id, 
+                        goalName: _goal.name,
+                        currentAmount: _goal.currentAmount)),
+              );
+              if (mounted) {
+                _fetchDetails();
+              }
+            },
           ),
         ),
         const SizedBox(width: FinzyTheme.spacingSm),
@@ -261,7 +340,15 @@ class GoalDetailScreen extends StatelessWidget {
             icon: Icons.edit_outlined,
             label: 'Chỉnh sửa',
             selected: false,
-            onTap: () {},
+            onTap: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => EditGoalScreen(goal: _goal)),
+              );
+              if (mounted) {
+                _fetchDetails();
+              }
+            },
           ),
         ),
       ],
@@ -273,23 +360,23 @@ class GoalDetailScreen extends StatelessWidget {
   // ---------------------------------------------------------------------------
 
   Widget _buildHistorySection() {
-    final items = [
-      _HistoryItem(
-          icon: Icons.savings,
-          label: 'Nạp tiền vào heo',
-          datetime: '12:30 • 15 Th10, 2024',
-          amount: '+2.000.000đ'),
-      _HistoryItem(
-          icon: Icons.savings,
-          label: 'Nạp tiền vào heo',
-          datetime: '09:15 • 01 Th10, 2024',
-          amount: '+5.000.000đ'),
-      _HistoryItem(
-          icon: Icons.savings,
-          label: 'Thưởng lãi tích lũy',
-          datetime: '00:01 • 30 Th09, 2024',
-          amount: '+45.500đ'),
-    ];
+    if (_transactions.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Lịch sử tích lũy',
+              style: FinzyTheme.headlineSm
+                  .copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: FinzyTheme.spacingSm),
+          const FinzyCard(
+            padding: EdgeInsets.all(FinzyTheme.spacingLg),
+            child: Center(
+              child: Text('Chưa có giao dịch nào'),
+            ),
+          ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,8 +400,14 @@ class GoalDetailScreen extends StatelessWidget {
         FinzyCard(
           padding: EdgeInsets.zero,
           child: Column(
-            children: List.generate(items.length, (i) {
-              final isLast = i == items.length - 1;
+            children: List.generate(_transactions.length, (i) {
+              final isLast = i == _transactions.length - 1;
+              final trx = _transactions[i];
+              final amountNum = (trx['amount'] as num).toDouble();
+              final date = DateTime.parse(trx['transactionDate'] ?? trx['createdAt']).toLocal();
+              final isPositive = amountNum >= 0;
+              final displayAmountStr = _fmt(amountNum.abs());
+
               return Column(
                 children: [
                   Padding(
@@ -325,31 +418,31 @@ class GoalDetailScreen extends StatelessWidget {
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            color: FinzyTheme.secondaryFixed,
+                            color: isPositive ? FinzyTheme.secondaryFixed : FinzyTheme.errorContainer,
                             borderRadius:
                                 BorderRadius.circular(FinzyTheme.radiusMd),
                           ),
-                          child: Icon(items[i].icon,
-                              color: FinzyTheme.onSecondaryFixed, size: 22),
+                          child: Icon(isPositive ? Icons.savings : Icons.account_balance_wallet,
+                              color: isPositive ? FinzyTheme.onSecondaryFixed : FinzyTheme.error, size: 22),
                         ),
                         const SizedBox(width: FinzyTheme.spacingMd),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(items[i].label,
+                              Text(trx['note'] ?? 'Giao dịch',
                                   style: FinzyTheme.bodyMd
                                       .copyWith(fontWeight: FontWeight.w600)),
                               const SizedBox(height: 2),
-                              Text(items[i].datetime,
+                              Text('${date.hour}:${date.minute.toString().padLeft(2, '0')} • ${date.day}/${date.month}/${date.year}',
                                   style: FinzyTheme.labelMd),
                             ],
                           ),
                         ),
                         Text(
-                          items[i].amount,
+                          isPositive ? '+$displayAmountStr' : '-$displayAmountStr',
                           style: FinzyTheme.bodyMd.copyWith(
-                              color: FinzyTheme.income,
+                              color: isPositive ? FinzyTheme.income : FinzyTheme.error,
                               fontWeight: FontWeight.w700),
                         ),
                       ],
@@ -390,7 +483,7 @@ class GoalDetailScreen extends StatelessWidget {
                   fontWeight: FontWeight.w700)),
           const SizedBox(height: FinzyTheme.spacingXs),
           Text(
-            'Bạn đang thực hiện rất tốt. Chỉ cần nạp thêm 3 lần nữa với số tiền trung bình hiện tại, bạn sẽ đạt mục tiêu sớm hơn dự kiến 12 ngày.',
+            'Hãy giữ vững phong độ! Việc duy trì thói quen tiết kiệm đều đặn sẽ giúp bạn hoàn thành mục tiêu đúng hạn.',
             style: FinzyTheme.bodyMd
                 .copyWith(color: FinzyTheme.onErrorContainer, height: 1.5),
           ),
@@ -399,8 +492,8 @@ class GoalDetailScreen extends StatelessWidget {
     );
   }
 
-  String _fmt(int amount) {
-    final s = amount.toString().replaceAllMapped(
+  String _fmt(double amount) {
+    final s = amount.toInt().toString().replaceAllMapped(
         RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
     return '${s}đ';
   }
@@ -409,18 +502,6 @@ class GoalDetailScreen extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Supporting widgets
 // ---------------------------------------------------------------------------
-
-class _HistoryItem {
-  final IconData icon;
-  final String label;
-  final String datetime;
-  final String amount;
-  const _HistoryItem(
-      {required this.icon,
-      required this.label,
-      required this.datetime,
-      required this.amount});
-}
 
 class _ActionButton extends StatelessWidget {
   final IconData icon;

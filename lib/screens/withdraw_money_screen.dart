@@ -3,12 +3,12 @@ import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import '../services/notification_service.dart';
 
-class AddMoneyToGoalScreen extends StatefulWidget {
+class WithdrawMoneyScreen extends StatefulWidget {
   final String goalId;
   final String goalName;
   final double currentAmount;
 
-  const AddMoneyToGoalScreen({
+  const WithdrawMoneyScreen({
     super.key,
     required this.goalId,
     required this.goalName,
@@ -16,10 +16,10 @@ class AddMoneyToGoalScreen extends StatefulWidget {
   });
 
   @override
-  State<AddMoneyToGoalScreen> createState() => _AddMoneyToGoalScreenState();
+  State<WithdrawMoneyScreen> createState() => _WithdrawMoneyScreenState();
 }
 
-class _AddMoneyToGoalScreenState extends State<AddMoneyToGoalScreen> {
+class _WithdrawMoneyScreenState extends State<WithdrawMoneyScreen> {
   String _amount = '0';
   final TextEditingController _noteController = TextEditingController();
 
@@ -81,10 +81,10 @@ class _AddMoneyToGoalScreenState extends State<AddMoneyToGoalScreen> {
                   ),
                   Expanded(
                     child: Text(
-                      'Nạp vào heo',
+                      'Rút tiền từ heo',
                       textAlign: TextAlign.center,
                       style: FinzyTheme.headlineMd
-                          .copyWith(color: FinzyTheme.primary, fontWeight: FontWeight.w700),
+                          .copyWith(color: FinzyTheme.error, fontWeight: FontWeight.w700),
                     ),
                   ),
                   const SizedBox(width: 48),
@@ -108,11 +108,11 @@ class _AddMoneyToGoalScreenState extends State<AddMoneyToGoalScreen> {
                                 width: 48,
                                 height: 48,
                                 decoration: BoxDecoration(
-                                  color: FinzyTheme.secondaryContainer,
+                                  color: FinzyTheme.errorContainer,
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.phone_iphone,
-                                    color: Colors.white, size: 26),
+                                child: Icon(Icons.account_balance_wallet,
+                                    color: FinzyTheme.error, size: 26),
                               ),
                               const SizedBox(width: FinzyTheme.spacingMd),
                               Column(
@@ -146,7 +146,7 @@ class _AddMoneyToGoalScreenState extends State<AddMoneyToGoalScreen> {
                     const SizedBox(height: FinzyTheme.spacingLg),
 
                     // Amount display
-                    Text('SỐ TIỀN MUỐN NẠP',
+                    Text('SỐ TIỀN MUỐN RÚT',
                         style: FinzyTheme.labelMd.copyWith(letterSpacing: 1)),
                     const SizedBox(height: FinzyTheme.spacingSm),
                     Row(
@@ -159,19 +159,19 @@ class _AddMoneyToGoalScreenState extends State<AddMoneyToGoalScreen> {
                           style: TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.w800,
-                            color: FinzyTheme.primary,
+                            color: FinzyTheme.error,
                           ),
                         ),
                         const SizedBox(width: 4),
                         Text('đ',
                             style: FinzyTheme.headlineLg
-                                .copyWith(color: FinzyTheme.primary)),
+                                .copyWith(color: FinzyTheme.error)),
                       ],
                     ),
                     Container(
                       height: 2,
                       width: 180,
-                      color: FinzyTheme.primary,
+                      color: FinzyTheme.error,
                       margin: const EdgeInsets.only(top: 4),
                     ),
                     const SizedBox(height: FinzyTheme.spacingMd),
@@ -186,7 +186,9 @@ class _AddMoneyToGoalScreenState extends State<AddMoneyToGoalScreen> {
                         const SizedBox(width: FinzyTheme.spacingSm),
                         _QuickChip(label: '+200k', onTap: () => _addQuick(200000)),
                         const SizedBox(width: FinzyTheme.spacingSm),
-                        _QuickChip(label: '+500k', onTap: () => _addQuick(500000)),
+                        _QuickChip(label: 'Tối đa', onTap: () => setState(() {
+                          _amount = widget.currentAmount.toInt().toString();
+                        })),
                       ],
                     ),
                     const SizedBox(height: FinzyTheme.spacingLg),
@@ -204,7 +206,7 @@ class _AddMoneyToGoalScreenState extends State<AddMoneyToGoalScreen> {
                     const SizedBox(height: FinzyTheme.spacingSm),
                     CustomTextField(
                       controller: _noteController,
-                      hint: 'Ví dụ: Tiền thưởng tháng 10...',
+                      hint: 'Ví dụ: Rút tiền mua sắm...',
                       prefixIcon: const Icon(Icons.edit_note,
                           color: FinzyTheme.onSurfaceVariant, size: 20),
                     ),
@@ -220,43 +222,62 @@ class _AddMoneyToGoalScreenState extends State<AddMoneyToGoalScreen> {
                   FinzyTheme.spacingMd, 0, FinzyTheme.spacingMd, FinzyTheme.spacingMd),
               child: Column(
                 children: [
-                  PrimaryButton(
-                    label: 'Nạp vào heo',
-                    icon: Icons.add,
-                    onPressed: () async {
-                      final amount = double.tryParse(_amount) ?? 0;
-                      if (amount <= 0) return;
+                  SizedBox(
+                    width: double.infinity,
+                    height: FinzyTheme.buttonMinHeight,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        final amount = double.tryParse(_amount) ?? 0;
+                        if (amount <= 0) return;
+                        if (amount > widget.currentAmount) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Số dư không đủ để rút số tiền này')),
+                          );
+                          return;
+                        }
 
-                      try {
-                        final note = _noteController.text.trim().isEmpty 
-                            ? 'Nạp tiền vào heo' 
-                            : _noteController.text.trim();
-                        final success = await ApiService.addMoney(widget.goalId, amount, note);
-                        if (success) {
-                          NotificationService.notifyNewTransaction();
+                        try {
+                          final note = _noteController.text.trim().isEmpty 
+                              ? 'Rút tiền từ heo' 
+                              : _noteController.text.trim();
+                          final success = await ApiService.withdrawMoney(widget.goalId, amount, note);
+                          if (success) {
+                            NotificationService.notifyNewTransaction();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Rút tiền thành công!')),
+                              );
+                              Navigator.of(context).pop();
+                            }
+                          } else if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Rút tiền thất bại')),
+                            );
+                          }
+                        } catch (e) {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Nạp tiền thành công!')),
+                              SnackBar(content: Text('Lỗi: $e')),
                             );
-                            Navigator.of(context).pop();
                           }
-                        } else if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Nạp tiền thất bại')),
-                          );
                         }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Lỗi: $e')),
-                          );
-                        }
-                      }
-                    },
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: FinzyTheme.error,
+                        foregroundColor: FinzyTheme.onError,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(FinzyTheme.radiusMd),
+                        ),
+                      ),
+                      icon: const Icon(Icons.remove_circle_outline, size: 20),
+                      label: Text('Xác nhận rút tiền',
+                          style: FinzyTheme.bodyLg.copyWith(fontWeight: FontWeight.w600)),
+                    ),
                   ),
                   const SizedBox(height: FinzyTheme.spacingSm),
                   Text(
-                    'Giao dịch sẽ được trừ trực tiếp vào Ví Finzy',
+                    'Tiền sẽ được cộng trực tiếp vào Ví Finzy',
                     style: FinzyTheme.labelMd
                         .copyWith(color: FinzyTheme.onSurfaceVariant),
                     textAlign: TextAlign.center,
@@ -329,13 +350,13 @@ class _QuickChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: FinzyTheme.primaryFixed,
+          color: FinzyTheme.errorContainer,
           borderRadius: BorderRadius.circular(FinzyTheme.radiusFull),
         ),
         child: Text(
           label,
           style: FinzyTheme.bodyMd.copyWith(
-            color: FinzyTheme.primary,
+            color: FinzyTheme.error,
             fontWeight: FontWeight.w600,
           ),
         ),

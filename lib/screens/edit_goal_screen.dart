@@ -1,28 +1,23 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
+import '../models/goal_model.dart';
 
-class CreateNewGoalScreen extends StatefulWidget {
-  const CreateNewGoalScreen({super.key});
+class EditGoalScreen extends StatefulWidget {
+  final GoalModel goal;
+
+  const EditGoalScreen({super.key, required this.goal});
 
   @override
-  State<CreateNewGoalScreen> createState() => _CreateNewGoalScreenState();
+  State<EditGoalScreen> createState() => _EditGoalScreenState();
 }
 
-class _CreateNewGoalScreenState extends State<CreateNewGoalScreen> {
-  int _selectedIconIndex = 0;
+class _EditGoalScreenState extends State<EditGoalScreen> {
+  late int _selectedIconIndex;
 
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _amountController = TextEditingController();
-  final TextEditingController _dateController = TextEditingController();
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _amountController.dispose();
-    _dateController.dispose();
-    super.dispose();
-  }
+  late final TextEditingController _nameController;
+  late final TextEditingController _amountController;
+  late final TextEditingController _dateController;
 
   final List<IconData> _icons = [
     Icons.savings,
@@ -39,33 +34,40 @@ class _CreateNewGoalScreenState extends State<CreateNewGoalScreen> {
     Icons.more_horiz,
   ];
 
-  String _getIconString(IconData iconData) {
-    if (iconData == Icons.flight_takeoff) return 'flight_takeoff';
-    if (iconData == Icons.directions_car) return 'directions_car';
-    if (iconData == Icons.home_outlined) return 'home_outlined';
-    if (iconData == Icons.laptop_mac) return 'laptop_mac';
-    if (iconData == Icons.favorite_outline) return 'favorite_outline';
-    if (iconData == Icons.celebration) return 'celebration';
-    if (iconData == Icons.school_outlined) return 'school_outlined';
-    if (iconData == Icons.fitness_center) return 'fitness_center';
-    if (iconData == Icons.restaurant) return 'restaurant';
-    if (iconData == Icons.shopping_bag_outlined) return 'shopping_bag_outlined';
-    if (iconData == Icons.more_horiz) return 'more_horiz';
-    return 'savings';
+  final List<String> _iconNames = [
+    'savings',
+    'flight_takeoff',
+    'directions_car',
+    'home_outlined',
+    'laptop_mac',
+    'favorite_outline',
+    'celebration',
+    'school_outlined',
+    'fitness_center',
+    'restaurant',
+    'shopping_bag_outlined',
+    'more_horiz',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.goal.name);
+    _amountController = TextEditingController(text: widget.goal.targetAmount.toInt().toString());
+    
+    final d = widget.goal.deadline;
+    _dateController = TextEditingController(text: '${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}/${d.year}');
+    
+    _selectedIconIndex = _iconNames.indexOf(widget.goal.icon);
+    if (_selectedIconIndex == -1) _selectedIconIndex = 0;
   }
 
-  Future<void> _selectDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null) {
-      setState(() {
-        _dateController.text = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-      });
-    }
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _amountController.dispose();
+    _dateController.dispose();
+    super.dispose();
   }
 
   @override
@@ -88,17 +90,13 @@ class _CreateNewGoalScreenState extends State<CreateNewGoalScreen> {
                   ),
                   Expanded(
                     child: Text(
-                      'Tạo Mục Tiêu Mới',
+                      'Chỉnh Sửa Mục Tiêu',
                       textAlign: TextAlign.center,
                       style: FinzyTheme.headlineMd
                           .copyWith(fontWeight: FontWeight.w700),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.help_outline,
-                        color: FinzyTheme.onSurfaceVariant),
-                    onPressed: () {},
-                  ),
+                  const SizedBox(width: 48), // balance
                 ],
               ),
             ),
@@ -109,10 +107,6 @@ class _CreateNewGoalScreenState extends State<CreateNewGoalScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Hero banner
-                    _buildHeroBanner(),
-                    const SizedBox(height: FinzyTheme.spacingLg),
-
                     // Form card
                     FinzyCard(
                       padding: const EdgeInsets.all(FinzyTheme.spacingMd),
@@ -165,9 +159,8 @@ class _CreateNewGoalScreenState extends State<CreateNewGoalScreen> {
                           const SizedBox(height: FinzyTheme.spacingSm),
                           CustomTextField(
                             controller: _dateController,
-                            hint: 'yyyy-mm-dd',
-                            readOnly: true,
-                            onTap: _selectDate,
+                            hint: 'mm/dd/yyyy',
+                            keyboardType: TextInputType.datetime,
                             prefixIcon: const Icon(Icons.calendar_today_outlined,
                                 color: FinzyTheme.onSurfaceVariant, size: 20),
                             suffixIcon: const Icon(Icons.calendar_month,
@@ -188,8 +181,8 @@ class _CreateNewGoalScreenState extends State<CreateNewGoalScreen> {
 
                     // CTA
                     PrimaryButton(
-                      label: 'Tạo mục tiêu',
-                      icon: Icons.savings,
+                      label: 'Lưu thay đổi',
+                      icon: Icons.save_outlined,
                       onPressed: () async {
                         final name = _nameController.text.trim();
                         final amountText = _amountController.text.trim();
@@ -209,18 +202,25 @@ class _CreateNewGoalScreenState extends State<CreateNewGoalScreen> {
                           );
                           return;
                         }
+                        
+                        if (target < widget.goal.currentAmount) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Số tiền mục tiêu không thể nhỏ hơn số dư hiện tại')),
+                          );
+                          return;
+                        }
 
                         try {
-                          final iconStr = _getIconString(_icons[_selectedIconIndex]);
-                          final success = await ApiService.createGoal(name, target, date, iconStr);
+                          final iconName = _iconNames[_selectedIconIndex];
+                          final success = await ApiService.editGoal(widget.goal.id, name, target, date, iconName);
                           if (success && mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Tạo mục tiêu thành công!')),
+                              const SnackBar(content: Text('Chỉnh sửa thành công!')),
                             );
                             Navigator.of(context).pop(true);
                           } else if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Không thể tạo mục tiêu')),
+                              const SnackBar(content: Text('Không thể chỉnh sửa mục tiêu')),
                             );
                           }
                         } catch (e) {
@@ -232,15 +232,6 @@ class _CreateNewGoalScreenState extends State<CreateNewGoalScreen> {
                         }
                       },
                     ),
-                    const SizedBox(height: FinzyTheme.spacingSm),
-                    Center(
-                      child: Text(
-                        'Bằng việc tạo mục tiêu, bạn đồng ý với Điều khoản tiết kiệm của Finzy.',
-                        style: FinzyTheme.labelMd
-                            .copyWith(color: FinzyTheme.onSurfaceVariant),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
                     const SizedBox(height: FinzyTheme.spacingMd),
                   ],
                 ),
@@ -248,46 +239,6 @@ class _CreateNewGoalScreenState extends State<CreateNewGoalScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeroBanner() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(FinzyTheme.spacingLg),
-      decoration: BoxDecoration(
-        color: FinzyTheme.primaryFixed,
-        borderRadius: BorderRadius.circular(FinzyTheme.radiusLg),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: FinzyTheme.primary,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.savings, color: FinzyTheme.onPrimary, size: 36),
-          ),
-          const SizedBox(height: FinzyTheme.spacingMd),
-          Text(
-            'Biến ước mơ thành hiện thực',
-            style: FinzyTheme.headlineSm.copyWith(
-              color: FinzyTheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: FinzyTheme.spacingXs),
-          Text(
-            'Lập kế hoạch tiết kiệm ngay hôm nay.',
-            style: FinzyTheme.bodyMd
-                .copyWith(color: FinzyTheme.onPrimaryFixedVariant),
-            textAlign: TextAlign.center,
-          ),
-        ],
       ),
     );
   }

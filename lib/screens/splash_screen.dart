@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:finzy/routes/app_routes.dart';
 import 'package:finzy/theme/app_theme.dart';
+import 'package:finzy/services/auth_service.dart';
 
 /// Màn hình Splash — giới thiệu thương hiệu Finzy khi mở app.
 class SplashScreen extends StatefulWidget {
@@ -25,6 +26,18 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _navigateToLogin() async {
     await Future<void>.delayed(_splashDuration);
+    if (!mounted) return;
+
+    final token = await AuthService.getToken();
+    if (token != null) {
+      final profile = await AuthService.getProfile();
+      if (profile['success'] == true) {
+        if (!mounted) return;
+        await AppRoutes.replaceWith(context, AppRoutes.savingsGoals);
+        return;
+      }
+    }
+
     if (!mounted) return;
     await AppRoutes.replaceWith(context, AppRoutes.login);
   }

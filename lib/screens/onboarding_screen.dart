@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:finzy/routes/app_routes.dart';
 
 // TODO: Import file FinzyTheme của bạn vào đây
 // Ví dụ: import 'package:finzy/theme/finzy_theme.dart';
@@ -41,8 +42,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _onNextPressed() {
     if (_currentIndex == _onboardingData.length - 1) {
-      // TODO: Điều hướng sang Login Screen khi ở trang cuối cùng
-      // Navigator.pushReplacementNamed(context, '/login');
+      AppRoutes.replaceWith(context, AppRoutes.login);
     } else {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
@@ -52,8 +52,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _onSkipPressed() {
-    // TODO: Bỏ qua onboarding và chuyển thẳng sang Login Screen
-    // Navigator.pushReplacementNamed(context, '/login');
+    AppRoutes.replaceWith(context, AppRoutes.login);
   }
 
   @override

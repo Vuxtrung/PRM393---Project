@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:finzy/routes/app_routes.dart';
 import 'package:finzy/theme/app_theme.dart';
+import 'package:finzy/services/auth_service.dart';
 
 /// Màn hình đăng ký — UI tĩnh theo design Finzy.
 class RegisterScreen extends StatefulWidget {
@@ -16,10 +17,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   static const String _title = 'Tạo tài khoản mới';
   static const String _subtitle =
       'Bắt đầu hành trình quản lý tài chính thông minh';
-  static const String _mockFullName = 'Nguyễn Văn A';
-  static const String _mockEmail = 'example@email.com';
-  static const String _mockPassword = 'password123';
-
   late final TextEditingController _fullNameController;
   late final TextEditingController _emailController;
   late final TextEditingController _passwordController;
@@ -32,10 +29,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
-    _fullNameController = TextEditingController(text: _mockFullName);
-    _emailController = TextEditingController(text: _mockEmail);
-    _passwordController = TextEditingController(text: _mockPassword);
-    _confirmPasswordController = TextEditingController(text: _mockPassword);
+    _fullNameController = TextEditingController();
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
+    _confirmPasswordController = TextEditingController();
   }
 
   @override
@@ -56,12 +53,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  void _handleRegister() {
+  Future<void> _handleRegister() async {
     if (!_agreedToTerms) {
       _showMessage('Vui lòng đồng ý với Điều khoản & Chính sách.');
       return;
     }
-    _showMessage('Tạo tài khoản thành công (mock).');
+
+    final name = _fullNameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      _showMessage('Vui lòng nhập đầy đủ thông tin.');
+      return;
+    }
+
+    if (password != confirmPassword) {
+      _showMessage('Mật khẩu nhập lại không khớp.');
+      return;
+    }
+
+    final result = await AuthService.register(name, email, password);
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      _showMessage('Tạo tài khoản thành công.');
+      await AppRoutes.replaceAll(context, AppRoutes.savingsGoals);
+    } else {
+      _showMessage(result['message']);
+    }
   }
 
   @override
@@ -104,6 +125,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               _RegisterLabeledField(
                 label: 'Họ và tên',
                 controller: _fullNameController,
+                hintText: 'Nhập họ và tên',
                 textInputAction: TextInputAction.next,
                 prefixIcon: Icon(
                   Icons.person_outline,
@@ -115,6 +137,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               _RegisterLabeledField(
                 label: 'Email',
                 controller: _emailController,
+                hintText: 'Nhập email của bạn',
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 prefixIcon: Icon(
@@ -127,6 +150,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               _RegisterLabeledField(
                 label: 'Mật khẩu',
                 controller: _passwordController,
+                hintText: 'Nhập mật khẩu',
                 obscureText: _obscurePassword,
                 textInputAction: TextInputAction.next,
                 prefixIcon: Icon(
@@ -150,6 +174,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               _RegisterLabeledField(
                 label: 'Xác nhận mật khẩu',
                 controller: _confirmPasswordController,
+                hintText: 'Nhập lại mật khẩu',
                 obscureText: _obscureConfirmPassword,
                 textInputAction: TextInputAction.done,
                 prefixIcon: Icon(
@@ -267,6 +292,7 @@ class _RegisterLabeledField extends StatelessWidget {
   const _RegisterLabeledField({
     required this.label,
     required this.controller,
+    this.hintText,
     this.obscureText = false,
     this.keyboardType,
     this.textInputAction,
@@ -276,6 +302,7 @@ class _RegisterLabeledField extends StatelessWidget {
 
   final String label;
   final TextEditingController controller;
+  final String? hintText;
   final bool obscureText;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
@@ -302,6 +329,8 @@ class _RegisterLabeledField extends StatelessWidget {
           textInputAction: textInputAction,
           style: FinzyTheme.bodyLg.copyWith(color: FinzyTheme.onSurface),
           decoration: InputDecoration(
+            hintText: hintText,
+            hintStyle: FinzyTheme.bodyLg.copyWith(color: FinzyTheme.outline),
             filled: true,
             fillColor: FinzyTheme.surfaceContainerLowest,
             contentPadding: const EdgeInsets.symmetric(

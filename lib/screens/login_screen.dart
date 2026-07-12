@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:finzy/routes/app_routes.dart';
 import 'package:finzy/theme/app_theme.dart';
+import 'package:finzy/services/auth_service.dart';
 
 /// Màn hình đăng nhập — UI tĩnh theo design Finzy.
 class LoginScreen extends StatefulWidget {
@@ -15,9 +16,6 @@ class _LoginScreenState extends State<LoginScreen> {
   static const String _title = 'Chào mừng trở lại!';
   static const String _subtitle =
       'Quản lý tài chính cá nhân dễ dàng cùng Finzy.';
-  static const String _mockEmail = 'example@email.com';
-  static const String _mockPassword = 'password123';
-
   late final TextEditingController _emailController;
   late final TextEditingController _passwordController;
   bool _obscurePassword = true;
@@ -25,8 +23,8 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _emailController = TextEditingController(text: _mockEmail);
-    _passwordController = TextEditingController(text: _mockPassword);
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
   }
 
   @override
@@ -58,12 +56,19 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    await AppRoutes.replaceAll(context, AppRoutes.shell);
+    final result = await AuthService.login(email, password);
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      await AppRoutes.replaceAll(context, AppRoutes.savingsGoals);
+    } else {
+      _showMessage(result['message']);
+    }
   }
 
   Future<void> _handleSocialLogin(String provider) async {
     _showMessage('Đăng nhập $provider thành công (mock).');
-    await AppRoutes.replaceAll(context, AppRoutes.shell);
+    await AppRoutes.replaceAll(context, AppRoutes.savingsGoals);
   }
 
   @override
@@ -87,6 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
               _LoginLabeledField(
                 label: 'Email',
                 controller: _emailController,
+                hintText: 'Nhập email của bạn',
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 prefixIcon: Icon(
@@ -99,6 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
               _LoginLabeledField(
                 label: 'Mật khẩu',
                 controller: _passwordController,
+                hintText: 'Nhập mật khẩu',
                 obscureText: _obscurePassword,
                 textInputAction: TextInputAction.done,
                 prefixIcon: Icon(
@@ -233,6 +240,7 @@ class _LoginLabeledField extends StatelessWidget {
   const _LoginLabeledField({
     required this.label,
     required this.controller,
+    this.hintText,
     this.obscureText = false,
     this.keyboardType,
     this.textInputAction,
@@ -242,6 +250,7 @@ class _LoginLabeledField extends StatelessWidget {
 
   final String label;
   final TextEditingController controller;
+  final String? hintText;
   final bool obscureText;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
@@ -268,6 +277,8 @@ class _LoginLabeledField extends StatelessWidget {
           textInputAction: textInputAction,
           style: FinzyTheme.bodyLg.copyWith(color: FinzyTheme.onSurface),
           decoration: InputDecoration(
+            hintText: hintText,
+            hintStyle: FinzyTheme.bodyLg.copyWith(color: FinzyTheme.outline),
             filled: true,
             fillColor: FinzyTheme.surfaceContainerLowest,
             contentPadding: const EdgeInsets.symmetric(

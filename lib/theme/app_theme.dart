@@ -507,6 +507,8 @@ class CustomTextField extends StatelessWidget {
     this.suffixIcon,
     this.maxLines = 1,
     this.autofocus = false,
+    this.readOnly = false,
+    this.onTap,
   });
 
   final TextEditingController? controller;
@@ -523,12 +525,16 @@ class CustomTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final int maxLines;
   final bool autofocus;
+  final bool readOnly;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
       obscureText: obscureText,
+      readOnly: readOnly,
+      onTap: onTap,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       onChanged: onChanged,
