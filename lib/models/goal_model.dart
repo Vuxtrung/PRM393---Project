@@ -11,6 +11,10 @@ class GoalModel {
   final String color;
   final DateTime createdAt;
 
+  int currentStreak;
+  int longestStreak;
+  DateTime? lastDepositDate;
+
   GoalModel({
     required this.id,
     required this.name,
@@ -21,6 +25,9 @@ class GoalModel {
     required this.icon,
     required this.color,
     required this.createdAt,
+    this.currentStreak = 0,
+    this.longestStreak = 0,
+    this.lastDepositDate,
   });
 
   factory GoalModel.fromJson(Map<String, dynamic> json) {
@@ -36,7 +43,24 @@ class GoalModel {
       createdAt: json['createdAt'] != null 
           ? DateTime.parse(json['createdAt']) 
           : DateTime.now().subtract(const Duration(days: 30)), // Fallback if missing
+      currentStreak: json['currentStreak'] ?? 0,
+      longestStreak: json['longestStreak'] ?? 0,
+      lastDepositDate: json['lastDepositDate'] != null ? DateTime.parse(json['lastDepositDate']) : null,
     );
+  }
+
+  double get progressPercentage {
+    if (targetAmount <= 0) return 0;
+    return (currentAmount / targetAmount) * 100;
+  }
+
+  String get pigTier {
+    final progress = progressPercentage;
+    if (progress < 25) return "Heo sơ sinh";
+    if (progress < 50) return "Heo mới lớn";
+    if (progress < 75) return "Heo trưởng thành";
+    if (progress < 100) return "Heo vàng";
+    return "Siêu heo";
   }
 
   IconData get iconData {

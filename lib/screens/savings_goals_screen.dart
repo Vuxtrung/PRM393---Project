@@ -7,7 +7,9 @@ import 'goal_detail_screen.dart';
 import '../models/goal_model.dart';
 import '../services/api_service.dart';
 import '../services/notification_service.dart';
+import '../services/notification_service.dart';
 import 'notification_screen.dart';
+import 'completed_goals_screen.dart';
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -73,10 +75,11 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> with SingleTick
   Future<void> _fetchGoals() async {
     try {
       final goals = await ApiService.getGoals();
-      goals.sort((a, b) => a.deadline.compareTo(b.deadline));
+      final activeGoals = goals.where((g) => g.currentAmount < g.targetAmount && g.status != 'completed').toList();
+      activeGoals.sort((a, b) => a.deadline.compareTo(b.deadline));
       if (mounted) {
         setState(() {
-          _goals = goals;
+          _goals = activeGoals;
           _isLoading = false;
         });
       }
@@ -124,19 +127,29 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> with SingleTick
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
-                                  'Mục tiêu tiết kiệm',
+                                  'Mục tiêu đang thực hiện',
                                   style: FinzyTheme.headlineMd
                                       .copyWith(fontWeight: FontWeight.w700),
                                 ),
                                 TextButton(
-                                  onPressed: () {},
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(builder: (_) => const CompletedGoalsScreen()),
+                                    ).then((_) => _fetchGoals());
+                                  },
                                   style: TextButton.styleFrom(
                                     foregroundColor: FinzyTheme.primary,
                                     padding: EdgeInsets.zero,
                                   ),
-                                  child: Text('Xem tất cả',
-                                      style: FinzyTheme.bodyMd
-                                          .copyWith(color: FinzyTheme.primary)),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.history, size: 16),
+                                      const SizedBox(width: 4),
+                                      Text('Lịch sử',
+                                          style: FinzyTheme.bodyMd
+                                              .copyWith(color: FinzyTheme.primary)),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
@@ -479,9 +492,30 @@ class _GoalCard extends StatelessWidget {
           const SizedBox(height: FinzyTheme.spacingMd),
 
           // Goal name
-          Text(goal.name,
-              style: FinzyTheme.headlineSm
-                  .copyWith(fontWeight: FontWeight.w700)),
+          Row(
+            children: [
+              Expanded(
+                child: Text(goal.name,
+                    style: FinzyTheme.headlineSm
+                        .copyWith(fontWeight: FontWeight.w700)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: FinzyTheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  goal.pigTier,
+                  style: FinzyTheme.labelMd.copyWith(
+                    color: FinzyTheme.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 2),
           Text(
             urgency == GoalUrgency.urgent

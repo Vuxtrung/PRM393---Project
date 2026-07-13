@@ -40,6 +40,48 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
         final wasNotCompleted = _goal.currentAmount < _goal.targetAmount;
         final isNowCompleted = newGoal.currentAmount >= newGoal.targetAmount;
 
+        // Calculate streak from transactions
+        int currentStreak = 0;
+        int longestStreak = 0;
+        DateTime? lastDepositDate;
+        
+        final deposits = (data['transactions'] as List).where((t) => (t['amount'] as num) > 0).toList();
+        deposits.sort((a, b) {
+          final dateA = DateTime.parse(a['transactionDate'] ?? a['createdAt']).toLocal();
+          final dateB = DateTime.parse(b['transactionDate'] ?? b['createdAt']).toLocal();
+          return dateA.compareTo(dateB);
+        });
+
+        for (var t in deposits) {
+          final date = DateTime.parse(t['transactionDate'] ?? t['createdAt']).toLocal();
+          final dDay = DateTime(date.year, date.month, date.day);
+          if (lastDepositDate == null) {
+            currentStreak = 1;
+            lastDepositDate = dDay;
+          } else {
+            final diff = dDay.difference(lastDepositDate).inDays;
+            if (diff == 1) {
+              currentStreak += 1;
+            } else if (diff > 1) {
+              currentStreak = 1;
+            }
+            lastDepositDate = dDay;
+          }
+          if (currentStreak > longestStreak) longestStreak = currentStreak;
+        }
+
+        if (lastDepositDate != null) {
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          if (today.difference(lastDepositDate).inDays > 1) {
+            currentStreak = 0; // Lost streak
+          }
+        }
+
+        newGoal.currentStreak = currentStreak;
+        newGoal.longestStreak = longestStreak;
+        newGoal.lastDepositDate = lastDepositDate;
+
         setState(() {
           _goal = newGoal;
           _transactions = data['transactions'];
@@ -150,15 +192,102 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
           ),
           const SizedBox(height: FinzyTheme.spacingMd),
 
-          // Piggy icon
+          // Piggy icon with Streak Badge Stack
+          Builder(
+            builder: (context) {
+              IconData tierIcon;
+              Color tierColor;
+              switch (_goal.pigTier) {
+                case "Heo sơ sinh":
+                  tierIcon = Icons.pets;
+                  tierColor = Colors.pinkAccent.shade100;
+                  break;
+                case "Heo mới lớn":
+                  tierIcon = Icons.savings_outlined;
+                  tierColor = Colors.pinkAccent.shade200;
+                  break;
+                case "Heo trưởng thành":
+                  tierIcon = Icons.savings;
+                  tierColor = Colors.pink;
+                  break;
+                case "Heo vàng":
+                  tierIcon = Icons.monetization_on;
+                  tierColor = Colors.amber;
+                  break;
+                case "Siêu heo":
+                  tierIcon = Icons.diamond;
+                  tierColor = Colors.cyanAccent;
+                  break;
+                default:
+                  tierIcon = Icons.savings;
+                  tierColor = Colors.pink;
+              }
+
+              return Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.topRight,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: tierColor, width: 3),
+                    ),
+                    child: Icon(tierIcon, color: tierColor, size: 36),
+                  ),
+              if (_goal.currentStreak > 0)
+                Positioned(
+                  right: -10,
+                  top: -10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.orange.withOpacity(0.5),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text("🔥", style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 2),
+                        Text(
+                          "${_goal.currentStreak}",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          );
+        }
+      ),
+      const SizedBox(height: FinzyTheme.spacingSm),
+
+          // Pig Tier
           Container(
-            width: 72,
-            height: 72,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(FinzyTheme.radiusMd),
+              color: FinzyTheme.onPrimary.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
             ),
-            child: Icon(_goal.iconData, color: iconColor, size: 36),
+            child: Text(
+              _goal.pigTier,
+              style: FinzyTheme.labelMd.copyWith(color: FinzyTheme.onPrimary, fontWeight: FontWeight.bold),
+            ),
           ),
           const SizedBox(height: FinzyTheme.spacingMd),
 
