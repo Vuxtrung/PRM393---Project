@@ -4,7 +4,10 @@ import '../theme/app_theme.dart';
 /// Screen 15 — displayed as a bottom-sheet modal overlay on top of the goals list.
 /// Can be pushed as a full route or shown via showModalBottomSheet.
 class GoalCompleteScreen extends StatelessWidget {
-  const GoalCompleteScreen({super.key});
+  final String goalName;
+  final double targetAmount;
+
+  const GoalCompleteScreen({super.key, required this.goalName, required this.targetAmount});
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +119,7 @@ class GoalCompleteScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: FinzyTheme.spacingXs),
                       Text(
-                        'Mua MacBook Pro M3',
+                        goalName,
                         style: FinzyTheme.headlineSm
                             .copyWith(fontWeight: FontWeight.w700),
                       ),
@@ -129,7 +132,7 @@ class GoalCompleteScreen extends StatelessWidget {
                           ),
                           const SizedBox(width: FinzyTheme.spacingMd),
                           Text(
-                            '50.000.000đ',
+                            '${targetAmount.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ',
                             style: FinzyTheme.displayCurrency.copyWith(
                               color: FinzyTheme.secondary,
                               fontSize: 30,
@@ -163,10 +166,10 @@ class GoalCompleteScreen extends StatelessWidget {
 }
 
 /// Helper to show this as a dialog/overlay on any screen.
-Future<void> showGoalCompleteDialog(BuildContext context) {
+Future<void> showGoalCompleteDialog(BuildContext context, {required String goalName, required double targetAmount}) {
   return showDialog(
     context: context,
     barrierColor: Colors.black54,
-    builder: (_) => const GoalCompleteScreen(),
+    builder: (_) => GoalCompleteScreen(goalName: goalName, targetAmount: targetAmount),
   );
 }

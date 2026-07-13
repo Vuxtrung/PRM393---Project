@@ -4,6 +4,8 @@ import '../theme/app_theme.dart';
 import 'add_money_to_goal_screen.dart';
 import 'withdraw_money_screen.dart';
 import 'edit_goal_screen.dart';
+import 'transaction_history_screen.dart';
+import 'goal_complete_screen.dart';
 import '../models/goal_model.dart';
 import '../services/api_service.dart';
 import 'savings_goals_screen.dart' show GoalUrgency;
@@ -34,11 +36,19 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
     try {
       final data = await ApiService.getGoalById(_goal.id);
       if (mounted) {
+        final newGoal = GoalModel.fromJson(data['goal']);
+        final wasNotCompleted = _goal.currentAmount < _goal.targetAmount;
+        final isNowCompleted = newGoal.currentAmount >= newGoal.targetAmount;
+
         setState(() {
-          _goal = GoalModel.fromJson(data['goal']);
+          _goal = newGoal;
           _transactions = data['transactions'];
           _isLoading = false;
         });
+
+        if (wasNotCompleted && isNowCompleted) {
+          showGoalCompleteDialog(context, goalName: _goal.name, targetAmount: _goal.targetAmount);
+        }
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
@@ -239,7 +249,20 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
         : 0;
     if (percent > 100) percent = 100;
     
+    double timePercent = 0.0;
+    final now = DateTime.now();
+    final totalDuration = _goal.deadline.difference(_goal.createdAt).inSeconds;
+    final elapsed = now.difference(_goal.createdAt).inSeconds;
+    if (totalDuration > 0) {
+      timePercent = (elapsed / totalDuration) * 100;
+    } else {
+      timePercent = 100.0;
+    }
+    if (timePercent > 100) timePercent = 100;
+    if (timePercent < 0) timePercent = 0;
+    
     String percentText = percent.toStringAsFixed(percent.truncateToDouble() == percent ? 0 : 1);
+    String timePercentText = timePercent.toStringAsFixed(timePercent.truncateToDouble() == timePercent ? 0 : 1);
 
     return FinzyCard(
       padding: const EdgeInsets.all(FinzyTheme.spacingLg),
@@ -249,7 +272,7 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
             width: 160,
             height: 160,
             child: CustomPaint(
-              painter: _RingPainter(progress: percent / 100),
+              painter: _RingPainter(progress: percent / 100, timeProgress: timePercent / 100),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -282,6 +305,27 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
             textAlign: TextAlign.center,
             style: FinzyTheme.bodyMd.copyWith(color: FinzyTheme.onSurfaceVariant),
           ),
+          const SizedBox(height: FinzyTheme.spacingMd),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                children: [
+                  Container(width: 10, height: 10, decoration: BoxDecoration(color: FinzyTheme.primary, shape: BoxShape.circle)),
+                  const SizedBox(width: 4),
+                  Text('Tiền: $percentText%', style: FinzyTheme.labelMd),
+                ],
+              ),
+              const SizedBox(width: 16),
+              Row(
+                children: [
+                  Container(width: 10, height: 10, decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle)),
+                  const SizedBox(width: 4),
+                  Text('Thời gian: $timePercentText%', style: FinzyTheme.labelMd),
+                ],
+              ),
+            ],
+          )
         ],
       ),
     );
@@ -341,11 +385,13 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
             label: 'Chỉnh sửa',
             selected: false,
             onTap: () async {
-              await Navigator.of(context).push(
+              final result = await Navigator.of(context).push(
                 MaterialPageRoute(
                     builder: (_) => EditGoalScreen(goal: _goal)),
               );
-              if (mounted) {
+              if (result == 'deleted') {
+                if (mounted) Navigator.of(context).pop(true);
+              } else if (mounted) {
                 _fetchDetails();
               }
             },
@@ -388,7 +434,16 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
                 style: FinzyTheme.headlineSm
                     .copyWith(fontWeight: FontWeight.w700)),
             TextButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TransactionHistoryScreen(
+                      goalName: _goal.name,
+                      transactions: _transactions,
+                    ),
+                  ),
+                );
+              },
               style: TextButton.styleFrom(
                   foregroundColor: FinzyTheme.primary, padding: EdgeInsets.zero),
               child: Text('Xem tất cả',
@@ -400,8 +455,8 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
         FinzyCard(
           padding: EdgeInsets.zero,
           child: Column(
-            children: List.generate(_transactions.length, (i) {
-              final isLast = i == _transactions.length - 1;
+            children: List.generate(_transactions.take(5).length, (i) {
+              final isLast = i == _transactions.take(5).length - 1;
               final trx = _transactions[i];
               final amountNum = (trx['amount'] as num).toDouble();
               final date = DateTime.parse(trx['transactionDate'] ?? trx['createdAt']).toLocal();
@@ -553,18 +608,19 @@ class _ActionButton extends StatelessWidget {
 
 class _RingPainter extends CustomPainter {
   final double progress;
-  const _RingPainter({required this.progress});
+  final double timeProgress;
+  const _RingPainter({required this.progress, required this.timeProgress});
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = min(size.width, size.height) / 2 - 10;
-    const strokeWidth = 14.0;
-    final rect = Rect.fromCircle(center: center, radius: radius);
-
-    // Track
+    final outerRadius = min(size.width, size.height) / 2 - 4;
+    const strokeWidth = 10.0;
+    
+    // Outer Ring: Money Progress
+    final outerRect = Rect.fromCircle(center: center, radius: outerRadius);
     canvas.drawArc(
-      rect,
+      outerRect,
       -pi / 2,
       2 * pi,
       false,
@@ -573,10 +629,8 @@ class _RingPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth,
     );
-
-    // Progress
     canvas.drawArc(
-      rect,
+      outerRect,
       -pi / 2,
       2 * pi * progress,
       false,
@@ -586,8 +640,34 @@ class _RingPainter extends CustomPainter {
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round,
     );
+
+    // Inner Ring: Time Progress
+    final innerRadius = outerRadius - strokeWidth - 4;
+    final innerRect = Rect.fromCircle(center: center, radius: innerRadius);
+    canvas.drawArc(
+      innerRect,
+      -pi / 2,
+      2 * pi,
+      false,
+      Paint()
+        ..color = FinzyTheme.surfaceContainerHigh
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth,
+    );
+    canvas.drawArc(
+      innerRect,
+      -pi / 2,
+      2 * pi * timeProgress,
+      false,
+      Paint()
+        ..color = Colors.orange
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _RingPainter old) => old.progress != progress;
+  bool shouldRepaint(covariant _RingPainter old) => 
+      old.progress != progress || old.timeProgress != timeProgress;
 }

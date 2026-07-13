@@ -73,6 +73,7 @@ class _SavingsGoalsScreenState extends State<SavingsGoalsScreen> with SingleTick
   Future<void> _fetchGoals() async {
     try {
       final goals = await ApiService.getGoals();
+      goals.sort((a, b) => a.deadline.compareTo(b.deadline));
       if (mounted) {
         setState(() {
           _goals = goals;

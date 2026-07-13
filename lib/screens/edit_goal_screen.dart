@@ -233,6 +233,55 @@ class _EditGoalScreenState extends State<EditGoalScreen> {
                       },
                     ),
                     const SizedBox(height: FinzyTheme.spacingMd),
+                    const SizedBox(height: FinzyTheme.spacingLg),
+                    
+                    // Delete Button
+                    SecondaryButton(
+                      label: 'Xóa mục tiêu',
+                      icon: Icons.delete_outline,
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text('Xóa mục tiêu', style: FinzyTheme.headlineSm),
+                            content: const Text('Bạn có chắc chắn muốn xóa mục tiêu này? Hành động này không thể hoàn tác.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: Text('Hủy', style: FinzyTheme.bodyMd),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                child: Text('Xóa', style: FinzyTheme.bodyMd.copyWith(color: FinzyTheme.error, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        );
+                        
+                        if (confirm == true) {
+                          try {
+                            final success = await ApiService.deleteGoal(widget.goal.id);
+                            if (success && mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Xóa mục tiêu thành công!')),
+                              );
+                              Navigator.of(context).pop('deleted');
+                            } else if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Không thể xóa mục tiêu')),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Lỗi: $e')),
+                              );
+                            }
+                          }
+                        }
+                      },
+                    ),
+                    const SizedBox(height: FinzyTheme.spacingMd),
                   ],
                 ),
               ),

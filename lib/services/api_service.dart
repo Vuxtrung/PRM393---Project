@@ -103,4 +103,15 @@ class ApiService {
 
     return response.statusCode == 200;
   }
+
+  // Xóa mục tiêu
+  static Future<bool> deleteGoal(String goalId) async {
+    final headers = await _getHeaders();
+    final response = await http.delete(
+      Uri.parse('$baseUrl/$goalId'),
+      headers: headers,
+    );
+
+    return response.statusCode == 200;
+  }
 }

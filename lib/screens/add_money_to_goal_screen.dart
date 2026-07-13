@@ -23,6 +23,56 @@ class _AddMoneyToGoalScreenState extends State<AddMoneyToGoalScreen> {
   String _amount = '0';
   final TextEditingController _noteController = TextEditingController();
 
+  bool _isLoadingLastTransaction = true;
+  Map<String, dynamic>? _lastTransaction;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLastTransaction();
+  }
+
+  Future<void> _fetchLastTransaction() async {
+    try {
+      final data = await ApiService.getGoalById(widget.goalId);
+      final List transactions = data['transactions'] ?? [];
+      
+      Map<String, dynamic>? lastDeposit;
+      for (var t in transactions) {
+        if ((t['amount'] as num) > 0) {
+          lastDeposit = t;
+          break; // Assuming the first one is the newest. If not, this gets the oldest. Let's just use the last one in the list to be safe if it's oldest first.
+        }
+      }
+      
+      // Usually APIs return newest first or oldest first. Let's reverse find if needed.
+      // Actually, let's just find the latest by date if we want to be robust.
+      if (transactions.isNotEmpty) {
+        final deposits = transactions.where((t) => (t['amount'] as num) > 0).toList();
+        if (deposits.isNotEmpty) {
+           deposits.sort((a, b) {
+             final dateA = DateTime.parse(a['transactionDate'] ?? a['createdAt']);
+             final dateB = DateTime.parse(b['transactionDate'] ?? b['createdAt']);
+             return dateB.compareTo(dateA); // Newest first
+           });
+           lastDeposit = deposits.first;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _lastTransaction = lastDeposit;
+          _isLoadingLastTransaction = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingLastTransaction = false);
+      }
+    }
+  }
+
   @override
   void dispose() {
     _noteController.dispose();
@@ -195,6 +245,61 @@ class _AddMoneyToGoalScreenState extends State<AddMoneyToGoalScreen> {
                     _buildNumberPad(),
                     const SizedBox(height: FinzyTheme.spacingLg),
 
+                    // Lặp lại giao dịch
+                    if (!_isLoadingLastTransaction && _lastTransaction != null) ...[
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _amount = (_lastTransaction!['amount'] as num).toInt().toString();
+                            _noteController.text = _lastTransaction!['note'] ?? '';
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Đã điền thông tin giao dịch trước đó')),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(FinzyTheme.spacingMd),
+                          decoration: BoxDecoration(
+                            color: FinzyTheme.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(FinzyTheme.radiusMd),
+                            border: Border.all(color: FinzyTheme.primary.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: FinzyTheme.primary.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.history, color: FinzyTheme.primary, size: 20),
+                              ),
+                              const SizedBox(width: FinzyTheme.spacingMd),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Lặp lại giao dịch trước đó',
+                                        style: FinzyTheme.labelMd.copyWith(
+                                            color: FinzyTheme.primary,
+                                            fontWeight: FontWeight.w600)),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${(_lastTransaction!['amount'] as num).toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}đ${_lastTransaction!['note'] != null && _lastTransaction!['note'].toString().isNotEmpty ? ' - ${_lastTransaction!['note']}' : ''}',
+                                      style: FinzyTheme.bodyMd,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: FinzyTheme.spacingLg),
+                    ],
+
                     // Lời nhắn / Ghi chú
                     Align(
                       alignment: Alignment.centerLeft,
@@ -221,11 +326,14 @@ class _AddMoneyToGoalScreenState extends State<AddMoneyToGoalScreen> {
               child: Column(
                 children: [
                   PrimaryButton(
-                    label: 'Nạp vào heo',
-                    icon: Icons.add,
-                    onPressed: () async {
+                    label: _isLoading ? 'Đang xử lý...' : 'Nạp vào heo',
+                    icon: _isLoading ? null : Icons.add,
+                    isLoading: _isLoading,
+                    onPressed: _isLoading ? null : () async {
                       final amount = double.tryParse(_amount) ?? 0;
                       if (amount <= 0) return;
+
+                      setState(() => _isLoading = true);
 
                       try {
                         final note = _noteController.text.trim().isEmpty 
@@ -250,6 +358,10 @@ class _AddMoneyToGoalScreenState extends State<AddMoneyToGoalScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('Lỗi: $e')),
                           );
+                        }
+                      } finally {
+                        if (mounted) {
+                          setState(() => _isLoading = false);
                         }
                       }
                     },

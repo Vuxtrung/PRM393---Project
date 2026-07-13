@@ -22,6 +22,7 @@ class WithdrawMoneyScreen extends StatefulWidget {
 class _WithdrawMoneyScreenState extends State<WithdrawMoneyScreen> {
   String _amount = '0';
   final TextEditingController _noteController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -226,7 +227,7 @@ class _WithdrawMoneyScreenState extends State<WithdrawMoneyScreen> {
                     width: double.infinity,
                     height: FinzyTheme.buttonMinHeight,
                     child: ElevatedButton.icon(
-                      onPressed: () async {
+                      onPressed: _isLoading ? null : () async {
                         final amount = double.tryParse(_amount) ?? 0;
                         if (amount <= 0) return;
                         if (amount > widget.currentAmount) {
@@ -235,6 +236,8 @@ class _WithdrawMoneyScreenState extends State<WithdrawMoneyScreen> {
                           );
                           return;
                         }
+
+                        setState(() => _isLoading = true);
 
                         try {
                           final note = _noteController.text.trim().isEmpty 
@@ -260,6 +263,10 @@ class _WithdrawMoneyScreenState extends State<WithdrawMoneyScreen> {
                               SnackBar(content: Text('Lỗi: $e')),
                             );
                           }
+                        } finally {
+                          if (mounted) {
+                            setState(() => _isLoading = false);
+                          }
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -270,8 +277,10 @@ class _WithdrawMoneyScreenState extends State<WithdrawMoneyScreen> {
                           borderRadius: BorderRadius.circular(FinzyTheme.radiusMd),
                         ),
                       ),
-                      icon: const Icon(Icons.remove_circle_outline, size: 20),
-                      label: Text('Xác nhận rút tiền',
+                      icon: _isLoading 
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: FinzyTheme.onError, strokeWidth: 2))
+                          : const Icon(Icons.remove_circle_outline, size: 20),
+                      label: Text(_isLoading ? 'Đang xử lý...' : 'Xác nhận rút tiền',
                           style: FinzyTheme.bodyLg.copyWith(fontWeight: FontWeight.w600)),
                     ),
                   ),

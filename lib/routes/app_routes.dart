@@ -40,7 +40,7 @@ class AppRoutes {
         // goalDetail: (_) => GoalDetailScreen(...), // Truyền dữ liệu trực tiếp qua constructor
         // Note: addMoney is handled via MaterialPageRoute to pass arguments
         createGoal: (_) => const CreateNewGoalScreen(),
-        goalComplete: (_) => const GoalCompleteScreen(),
+        // goalComplete: (_) => const GoalCompleteScreen(), // Requires arguments
         profile: (_) => const ProfileScreen(),
       };
 

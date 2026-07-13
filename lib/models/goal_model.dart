@@ -9,6 +9,7 @@ class GoalModel {
   final String status;
   final String icon;
   final String color;
+  final DateTime createdAt;
 
   GoalModel({
     required this.id,
@@ -19,6 +20,7 @@ class GoalModel {
     required this.status,
     required this.icon,
     required this.color,
+    required this.createdAt,
   });
 
   factory GoalModel.fromJson(Map<String, dynamic> json) {
@@ -31,6 +33,9 @@ class GoalModel {
       status: json['status'],
       icon: json['icon'] ?? 'savings',
       color: json['color'] ?? '#1E88E5',
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now().subtract(const Duration(days: 30)), // Fallback if missing
     );
   }
 
